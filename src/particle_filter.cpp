@@ -18,6 +18,7 @@
 
 #include "helper_functions.h"
 
+using std::normal_distribution;
 using std::string;
 using std::vector;
 
@@ -30,8 +31,38 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    * NOTE: Consult particle_filter.h for more information about this method 
    *   (and others in this file).
    */
-  num_particles = 0;  // TODO: Set the number of particles
+  num_particles = 100;  // TODO: Set the number of particles
+  // num_particles is the private value for ParticleFilter.
+  // The double std[] is the sigma pos for x, y, and theta.
+  // This line creates a normal (Gaussian) distribution for x
+  float std_x = std[0];
+  float std_y = std[1];
+  float std_theta = std[2];
+  std::default_random_engine gen;
 
+  normal_distribution<double> dist_x(x, std_x);
+  // Create normal distributions for y and theta
+  normal_distribution<double> dist_y(y, std_y);
+  normal_distribution<double> dist_theta(theta, std_theta);
+  // Initialize the vector size.
+  particles.resize(num_particles);
+  weights.resize(num_particles);
+  // The weights need to fill in weight value later.
+  for (int i = 0; i < num_particles; ++i)
+  {
+    double sample_x, sample_y, sample_theta;
+
+    //   where "gen" is the random engine initialized earlier.
+    sample_x = dist_x(gen);
+    sample_y = dist_y(gen);
+    sample_theta = dist_theta(gen);
+    particles[i].id = i;
+    particles[i].x = sample_x;
+    particles[i].y = sample_y;
+    particles[i].theta = sample_theta;
+    particles[i].weight = 1.0;
+  }
+  is_initialized = true; 
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], 
@@ -43,7 +74,35 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
    *  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
    *  http://www.cplusplus.com/reference/random/default_random_engine/
    */
+  // Why should I add random Gaussian noise?
+  float std_x = std_pos[0];
+  float std_y = std_pos[1];
+  float std_theta = std_pos[2];
+  std::default_random_engine gen;
 
+  normal_distribution<double> dist_x(0, std_x);
+  // Create normal distributions for y and theta
+  normal_distribution<double> dist_y(0, std_y);
+  normal_distribution<double> dist_theta(0, std_theta);
+  for(unsigned int i = 0; i < num_particles; i++)
+  {
+    // std::cout<<"Previous Particle: \n"<<particles[i].x<<"\n";
+    // Particle *particle = &particles[i];
+    double theta = particles[i].theta;
+    if(fabs(yaw_rate) < 0.00001){
+      // Straight Line
+      particles[i].x += velocity * cos(theta) * delta_t + dist_x(gen);
+      particles[i].y += velocity * sin(theta) * delta_t + dist_y(gen);
+    }
+    else
+    {
+      particles[i].theta += yaw_rate * delta_t;
+      particles[i].x += velocity / yaw_rate * (sin(particles[i].theta) - sin(theta));
+      particles[i].y += velocity / yaw_rate * (cos(theta) - cos(particles[i].theta));
+    }    
+    //std::cout << "Now Particle: \n"<< particles[i].x << "\n";
+  }
+  
 }
 
 void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, 
@@ -56,7 +115,24 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
    *   probably find it useful to implement this method and use it as a helper 
    *   during the updateWeights phase.
    */
+  // Use the nearest neighbor algorithm to find out the nearest one predicted.
+  // The landmarksObs struct contains id, x, and y.
+  double min_dist = 999999;
 
+  for(unsigned int i = 0; i < observations.size(); i++)
+  {
+    LandmarkObs obs = observations[i];
+    for(unsigned int j = 0; j < predicted.size(); j++)
+    {
+      LandmarkObs pos = predicted[j];
+      double cur_dist = dist(pos.x, pos.y, obs.x, obs.y);
+      if (cur_dist < min_dist)
+      {
+        observations[i].id = pos.id;
+        min_dist = cur_dist;
+      };
+    }
+  }
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
@@ -75,7 +151,39 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
+  for(unsigned int i = 0; i < num_particles; i++)
+  {
+    double theta = particles[i].theta;
 
+    // transform the observations into the map coordinate.
+    vector<LandmarkObs> transformed_os;
+    for(unsigned int j = 0; j < observations.size(); j++)
+    {
+      double x_obs = observations[i].x;
+      double y_obs = observations[i].y;
+      
+      double x_map = particles[i].x + (cos(theta) * x_obs) - (sin(theta) * y_obs);
+      double y_map = particles[i].y + (sin(theta) * x_obs) + (cos(theta) * y_obs);
+      
+      LandmarkObs new_obs = {observations[j].id, x_map, y_map};
+      transformed_os.push_back(new_obs);
+    }
+
+    // Use sensor range to get predictions from map_landmarks.
+    vector<LandmarkObs> predictions;
+    for(unsigned int i = 0; i < map_landmarks.landmark_list.size(); i++)
+    {
+      
+    }
+    
+    dataAssociation(predictions, transformed_os);
+
+
+  }
+  
+  
+  
+  
 }
 
 void ParticleFilter::resample() {
