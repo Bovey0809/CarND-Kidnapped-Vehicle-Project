@@ -89,7 +89,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   normal_distribution<double> dist_theta(0, std_theta);
   for(unsigned int i = 0; i < num_particles; i++)
   {
-    std::cout<<"Previous Particle: \n"<<particles[i].x<<"\n";
+    // std::cout<<"Previous Particle: \n"<<particles[i].x<<"\n";
     // Particle *particle = &particles[i];
     double theta = particles[i].theta;
     if(fabs(yaw_rate) < 0.00001){
@@ -103,7 +103,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
       particles[i].x += velocity / yaw_rate * (sin(particles[i].theta) - sin(theta));
       particles[i].y += velocity / yaw_rate * (cos(theta) - cos(particles[i].theta));
     }    
-    std::cout << "Now Particle: \n"<< particles[i].x << "\n";
+    // std::cout << "Now Particle: \n"<< particles[i].x << "\n";
   }
   
 }
