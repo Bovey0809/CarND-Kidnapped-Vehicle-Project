@@ -221,7 +221,13 @@ void ParticleFilter::resample() {
    * NOTE: You may find std::discrete_distribution helpful here.
    *   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
    */
+std::default_random_engine generator;
 
+for(unsigned int  i = 0; i < num_particles; i++)
+{
+  std::discrete_distribution<int> dist(weights.begin(), weights.end());
+  particles[i] = particles[dist(generator)];
+}
 }
 
 void ParticleFilter::SetAssociations(Particle& particle, 
